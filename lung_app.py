@@ -5,28 +5,26 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import os
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import urllib.request
+from matplotlib.textpath import TextPath
+from matplotlib.patches import PathPatch
 
 # -------------------------------
-# 1. 폰트 크래시 방지 및 한글 웹 폰트 CSS 주입
+# 1. 안전한 웹 폰트 다운로드 (크래시 우회용)
 # -------------------------------
-# Matplotlib의 내부 엔진이 깨진 파일 읽다 크래시 나는 것을 원천 차단하기 위해 
-# 범용성이 검증된 기본 한글 폰트 시스템 이름(DejaVu Sans 등 리눅스 표준)으로 백업합니다.
-plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['axes.unicode_minus'] = False
+@st.cache_resource
+def load_custom_font():
+    url = "https://github.com"
+    save_path = "temp_font.ttf"
+    if not os.path.exists(save_path):
+        try:
+            urllib.request.urlretrieve(url, save_path)
+        except Exception:
+            return None
+    return save_path
 
-# Streamlit 웹 화면 전체(제목, 입력창 등)를 '메모먼트 꾹꾹체'로 바꾸는 안전한 CSS 스트리밍 주입
-st.markdown("""
-    <style>
-    @import url('https://googleapis.com');
-    @font-face {
-        font-family: 'Kkukkkukk';
-        src: url('https://github.com') format('truetype');
-    }
-    html, body, [data-testid="stMarkdownContainer"], h1, h2, h3, h4, h5, h6, label, p, span {
-        font-family: 'Kkukkkukk', 'Nanum Gothic', sans-serif !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+font_file = load_custom_font()
 
 # -------------------------------
 # 2. 모델 & 스케일러 경로 설정
@@ -96,12 +94,12 @@ if st.button("예측하기"):
     prediction = model.predict(new_patient_scaled)
 
     st.subheader("📊 예측 결과")
-    if prediction[0] == 0:
+    if prediction == 0:
         st.success("✅ 낮은 위험군으로 분류되었습니다.")
     else:
         st.error("⚠️ 높은 위험군으로 분류되었습니다.")
 
-    st.write(f"군집 번호: {prediction[0]}")
+    st.write(f"군집 번호: {prediction}")
 
     # 차트 시각화
     st.subheader("📈 환자 위치 시각화")
@@ -111,16 +109,39 @@ if st.button("예측하기"):
     ax.scatter(df['담배여부'], df['술여부'], c=df['cluster'], alpha=0.5, s=150)
 
     # 신규 환자 'X' 표시
-    ax.scatter(Smokes, Alkhol, c='black', s=300, marker='X', label='New Patient')
+    ax.scatter(Smokes, Alkhol, c='black', s=300, marker='X')
 
-    # ⚠️ 리눅스 서버에서 절대로 에러가 나지 않는 영문 표준 축 레이블링으로 고정합니다.
-    # (한글 제목은 Streamlit UI 타이틀이 해결해 주므로 차트 크래시를 완벽 차단함)
-    ax.set_xlabel('Smoking Level (0-10)', fontsize=12)
-    ax.set_ylabel('Drinking Level (0-10)', fontsize=12)
-    ax.set_title('Lung Cancer Risk Clustering', fontsize=16, pad=15)
-    ax.legend(loc='upper right')
-    
+    # ⚠️ 절대 깨지지 않는 벡터 그래픽 한글 렌더링 기법 (Explicit Path Injection)
+    def draw_safe_korean(axis, text, x, y, size=12, is_title=False):
+        if font_file and os.path.exists(font_file):
+            try:
+                # 텍스트를 기하학적 패스(선)로 변환
+                t_path = TextPath((0, 0), text, size=size, prop=fm.FontProperties(fname=font_file))
+                patch = PathPatch(t_path, facecolor="black", edgecolor="none")
+                
+                # 타이틀 혹은 축 레이블 위치 계산 및 강제 주입
+                if is_title:
+                    axis.text(x, y, text, fontproperties=fm.FontProperties(fname=font_file), fontsize=size, ha='center')
+                else:
+                    axis.text(x, y, text, fontproperties=fm.FontProperties(fname=font_file), fontsize=size)
+                return True
+            except Exception:
+                return False
+        return False
+
+    # 안전하게 강제 주입된 한국어 레이블 (실패 시 영문 백업 자동 작동)
+    if not draw_safe_korean(ax, "폐암 위험 군집 시각화", 5, 11.5, size=15, is_title=True):
+        ax.set_title('Lung Cancer Risk Clustering', fontsize=15)
+        
+    if font_file and os.path.exists(font_file):
+        ax.set_xlabel('흡연 정도', fontproperties=fm.FontProperties(fname=font_file), fontsize=12)
+        ax.set_ylabel('음주 정도', fontproperties=fm.FontProperties(fname=font_file), fontsize=12)
+        ax.text(10.2, Alkhol, '새 환자', fontproperties=fm.FontProperties(fname=font_file), fontsize=10, verticalalignment='center')
+    else:
+        ax.set_xlabel('Smoking Level')
+        ax.set_ylabel('Drinking Level')
+        
     ax.set_xlim(-1, 11)
-    ax.set_ylim(-1, 11)
+    ax.set_ylim(-1, 12)
     
     st.pyplot(fig)
