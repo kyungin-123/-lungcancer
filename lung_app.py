@@ -6,29 +6,21 @@ from sklearn.cluster import KMeans
 import os
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import urllib.request
 
 # -------------------------------
-# 웹 서버(Streamlit Cloud) 한글 폰트 다운로드 및 설정
+# 깃허브에 업로드한 '메모먼트 꾹꾹체' 설정
 # -------------------------------
-@st.cache_resource
-def load_font():
-    font_url = "https://github.com"
-    font_path = "NanumGothic.ttf"
-    if not os.path.exists(font_path):
-        urllib.request.urlretrieve(font_url, font_path)
-    return font_path
+font_path = "Kkukkkuk.ttf"  # 깃허브에 올린 파일명과 일치해야 합니다.
 
-try:
-    font_p = load_font()
-    font_name = fm.FontProperties(fname=font_p).get_name()
+if os.path.exists(font_path):
+    # 파일이 있으면 커스텀 폰트 지정
+    font_name = fm.FontProperties(fname=font_path).get_name()
     plt.rcParams['font.family'] = font_name
-except Exception as e:
-    # 로컬 실행 대비 예외 처리
+else:
+    # 파일이 없을 때를 대비한 기본 폰트 백업
     plt.rcParams['font.family'] = 'Malgun Gothic'
 
 plt.rcParams['axes.unicode_minus'] = False
-
 # -------------------------------
 # 모델 & 스케일러 경로
 # -------------------------------
