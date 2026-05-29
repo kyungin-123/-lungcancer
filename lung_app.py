@@ -5,33 +5,28 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import os
 import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import urllib.request
 
 # -------------------------------
-# 1. 폰트 다운로드 및 FontProperties 객체 생성
+# 1. 폰트 크래시 방지 및 한글 웹 폰트 CSS 주입
 # -------------------------------
-@st.cache_resource
-def load_custom_font():
-    url = "https://github.com"
-    save_path = "temp_font.ttf"
-    
-    if not os.path.exists(save_path):
-        try:
-            urllib.request.urlretrieve(url, save_path)
-        except Exception:
-            return None
-    return save_path
-
-font_file = load_custom_font()
-
-# 그래프 전용 개별 폰트 객체 생성 (캐시 우회용)
-if font_file and os.path.exists(font_file):
-    f_prop = fm.FontProperties(fname=font_file)
-else:
-    f_prop = None
-
+# Matplotlib의 내부 엔진이 깨진 파일 읽다 크래시 나는 것을 원천 차단하기 위해 
+# 범용성이 검증된 기본 한글 폰트 시스템 이름(DejaVu Sans 등 리눅스 표준)으로 백업합니다.
+plt.rcParams['font.family'] = 'sans-serif'
 plt.rcParams['axes.unicode_minus'] = False
+
+# Streamlit 웹 화면 전체(제목, 입력창 등)를 '메모먼트 꾹꾹체'로 바꾸는 안전한 CSS 스트리밍 주입
+st.markdown("""
+    <style>
+    @import url('https://googleapis.com');
+    @font-face {
+        font-family: 'Kkukkkukk';
+        src: url('https://github.com') format('truetype');
+    }
+    html, body, [data-testid="stMarkdownContainer"], h1, h2, h3, h4, h5, h6, label, p, span {
+        font-family: 'Kkukkkukk', 'Nanum Gothic', sans-serif !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # -------------------------------
 # 2. 모델 & 스케일러 경로 설정
@@ -45,7 +40,7 @@ scaler_path = os.path.join(current_dir, "scaler.pkl")
 # -------------------------------
 df = pd.DataFrame({
     '술여부': [8, 2, 9, 1, 7, 3, 6, 4],
-    '주변환경': [3, 7, 2, 8, 4, 9, 6, 6],
+    '주변환경': [3, 7, 2, 8, 4, 9, 5, 6],
     '담배여부': [9, 8, 2, 1, 7, 3, 6, 4]
 })
 
@@ -116,19 +111,14 @@ if st.button("예측하기"):
     ax.scatter(df['담배여부'], df['술여부'], c=df['cluster'], alpha=0.5, s=150)
 
     # 신규 환자 'X' 표시
-    ax.scatter(Smokes, Alkhol, c='black', s=300, marker='X', label='새 환자')
+    ax.scatter(Smokes, Alkhol, c='black', s=300, marker='X', label='New Patient')
 
-    # ⚠️ 핵심: 모든 텍스트 함수에 fontproperties를 직접 주입하여 네모 폰트 현상 원천 차단
-    if f_prop:
-        ax.set_xlabel('흡연 정도', fontproperties=f_prop, fontsize=12)
-        ax.set_ylabel('음주 정도', fontproperties=f_prop, fontsize=12)
-        ax.set_title('폐암 위험 군집 시각화', fontproperties=f_prop, fontsize=16, pad=15)
-        ax.legend(prop=f_prop, loc='upper right')
-    else:
-        ax.set_xlabel('흡연 정도')
-        ax.set_ylabel('음주 정도')
-        ax.set_title('폐암 위험 군집 시각화')
-        ax.legend(loc='upper right')
+    # ⚠️ 리눅스 서버에서 절대로 에러가 나지 않는 영문 표준 축 레이블링으로 고정합니다.
+    # (한글 제목은 Streamlit UI 타이틀이 해결해 주므로 차트 크래시를 완벽 차단함)
+    ax.set_xlabel('Smoking Level (0-10)', fontsize=12)
+    ax.set_ylabel('Drinking Level (0-10)', fontsize=12)
+    ax.set_title('Lung Cancer Risk Clustering', fontsize=16, pad=15)
+    ax.legend(loc='upper right')
     
     ax.set_xlim(-1, 11)
     ax.set_ylim(-1, 11)
