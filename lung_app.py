@@ -6,32 +6,44 @@ from sklearn.cluster import KMeans
 import os
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import urllib.request
 
 # -------------------------------
-# 1. 절대 경로 기준 폰트 강제 등록 및 한글 설정
+# 1. 깃허브 URL 직접 다운로드 기반 한글 폰트 설정
 # -------------------------------
-# 현재 lung_app.py 파일이 있는 폴더 위치를 기준으로 파일 경로를 완벽히 찾아냅니다.
-current_dir = os.path.dirname(__file__)
-font_path = os.path.join(current_dir, "Kkukkkukk.ttf")
+@st.cache_resource
+def load_custom_font():
+    # 사용자의 깃허브 주소에서 폰트 파일을 직접 다운로드합니다.
+    url = "https://github.com"
+    save_path = "temp_font.ttf"
+    
+    if not os.path.exists(save_path):
+        try:
+            urllib.request.urlretrieve(url, save_path)
+        except Exception as e:
+            return None
+    return save_path
 
-if os.path.exists(font_path):
+font_file = load_custom_font()
+
+if font_file and os.path.exists(font_file):
     try:
-        # 매트플롯립에 폰트 직접 주입
-        fm.fontManager.addfont(font_path)
-        font_name = fm.FontProperties(fname=font_path).get_name()
+        # 매트플롯립에 다운로드한 폰트 주입
+        fm.fontManager.addfont(font_file)
+        font_name = fm.FontProperties(fname=font_file).get_name()
         plt.rcParams['font.family'] = font_name
     except Exception as e:
         plt.rcParams['font.family'] = 'sans-serif'
 else:
-    # 폰트 파일이 없을 경우 경고 메시지 출력
-    st.sidebar.warning(f"⚠️ 폰트 파일 위치 오류:\n{font_path}\n파일을 찾을 수 없어 기본 폰트로 대체합니다.")
+    st.sidebar.warning("⚠️ 폰트 다운로드 실패로 기본 폰트를 사용합니다.")
     plt.rcParams['font.family'] = 'sans-serif'
 
 plt.rcParams['axes.unicode_minus'] = False
 
 # -------------------------------
-# 2. 모델 & 스케일러 경로 (절대 경로 기준 수정)
+# 2. 모델 & 스케일러 경로 설정
 # -------------------------------
+current_dir = os.path.dirname(__file__)
 model_path = os.path.join(current_dir, "kmeans_model.pkl")
 scaler_path = os.path.join(current_dir, "scaler.pkl")
 
@@ -40,7 +52,7 @@ scaler_path = os.path.join(current_dir, "scaler.pkl")
 # -------------------------------
 df = pd.DataFrame({
     '술여부': [8, 2, 9, 1, 7, 3, 6, 4],
-    '주변환경': [3, 7, 2, 8, 4, 9, 6, 6],
+    '주변환경': [3, 7, 2, 8, 4, 9, 5, 6],
     '담배여부': [9, 8, 2, 1, 7, 3, 6, 4]
 })
 
@@ -149,7 +161,7 @@ if st.button("예측하기"):
         label='새 환자'
     )
 
-    # 축 설정 및 타이틀 (등록한 폰트로 한글 출력 가능)
+    # 축 설정 및 타이틀
     ax.set_xlabel('흡연 정도')
     ax.set_ylabel('음주 정도')
     ax.set_title('폐암 위험 군집 시각화')
