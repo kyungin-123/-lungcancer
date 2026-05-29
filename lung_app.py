@@ -10,7 +10,7 @@ import matplotlib.font_manager as fm
 # -------------------------------
 # 1. 폰트 강제 등록 및 한글 설정
 # -------------------------------
-font_path = "Kkukkkuk.ttf"  # 깃허브에 업로드한 폰트 파일명
+font_path = "KkukkkukK.ttf"  # 깃허브에 업로드한 폰트 파일명
 
 if os.path.exists(font_path):
     try:
