@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 # -------------------------------
-# 1. 폰트 강제 등록 및 한글 설정
+# 1. 절대 경로 기준 폰트 강제 등록 및 한글 설정
 # -------------------------------
-font_path = "Kkukkkukk.ttf"  # 깃허브에 업로드한 폰트 파일명
+# 현재 lung_app.py 파일이 있는 폴더 위치를 기준으로 파일 경로를 완벽히 찾아냅니다.
+current_dir = os.path.dirname(__file__)
+font_path = os.path.join(current_dir, "Kkukkkukk.ttf")
 
 if os.path.exists(font_path):
     try:
@@ -22,24 +24,23 @@ if os.path.exists(font_path):
         plt.rcParams['font.family'] = 'sans-serif'
 else:
     # 폰트 파일이 없을 경우 경고 메시지 출력
-    st.sidebar.warning(f"⚠️ 폰트 파일('{font_path}')을 찾을 수 없어 기본 폰트로 대체합니다.")
+    st.sidebar.warning(f"⚠️ 폰트 파일 위치 오류:\n{font_path}\n파일을 찾을 수 없어 기본 폰트로 대체합니다.")
     plt.rcParams['font.family'] = 'sans-serif'
 
 plt.rcParams['axes.unicode_minus'] = False
 
 # -------------------------------
-# 2. 모델 & 스케일러 경로 (상대 경로로 수정)
+# 2. 모델 & 스케일러 경로 (절대 경로 기준 수정)
 # -------------------------------
-# 웹 서버와 로컬 모두에서 동작하도록 상대 경로 지정
-model_path = "kmeans_model.pkl"
-scaler_path = "scaler.pkl"
+model_path = os.path.join(current_dir, "kmeans_model.pkl")
+scaler_path = os.path.join(current_dir, "scaler.pkl")
 
 # -------------------------------
 # 3. 예시 데이터 (0~10 정수 기준 수정)
 # -------------------------------
 df = pd.DataFrame({
     '술여부': [8, 2, 9, 1, 7, 3, 6, 4],
-    '주변환경': [3, 7, 2, 8, 4, 9, 5, 6],
+    '주변환경': [3, 7, 2, 8, 4, 9, 6, 6],
     '담배여부': [9, 8, 2, 1, 7, 3, 6, 4]
 })
 
