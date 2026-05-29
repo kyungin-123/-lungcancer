@@ -4,27 +4,22 @@ import joblib
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import os
-import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import urllib.request
-from matplotlib.textpath import TextPath
-from matplotlib.patches import PathPatch
 
 # -------------------------------
-# 1. 안전한 웹 폰트 다운로드 (크래시 우회용)
+# 1. 전역 스타일 및 한글 웹폰트 안전 주입 (CSS 방식)
 # -------------------------------
-@st.cache_resource
-def load_custom_font():
-    url = "https://github.com"
-    save_path = "temp_font.ttf"
-    if not os.path.exists(save_path):
-        try:
-            urllib.request.urlretrieve(url, save_path)
-        except Exception:
-            return None
-    return save_path
-
-font_file = load_custom_font()
+st.markdown("""
+    <style>
+    @import url('https://googleapis.com');
+    @font-face {
+        font-family: 'Kkukkkukk';
+        src: url('https://github.com') format('truetype');
+    }
+    html, body, [data-testid="stMarkdownContainer"], h1, h2, h3, h4, h5, h6, label, p, span {
+        font-family: 'Kkukkkukk', 'Nanum Gothic', sans-serif !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # -------------------------------
 # 2. 모델 & 스케일러 경로 설정
@@ -38,7 +33,7 @@ scaler_path = os.path.join(current_dir, "scaler.pkl")
 # -------------------------------
 df = pd.DataFrame({
     '술여부': [8, 2, 9, 1, 7, 3, 6, 4],
-    '주변환경': [3, 7, 2, 8, 4, 9, 5, 6],
+    '주변환경': [3, 7, 2, 8, 4, 9, 6, 6],
     '담배여부': [9, 8, 2, 1, 7, 3, 6, 4]
 })
 
@@ -81,7 +76,7 @@ AreaQ = st.number_input("🏭 주변 환경 위험도 (0 ~ 10)", min_value=0, ma
 Smokes = st.number_input("🚬 흡연 정도 (0 ~ 10)", min_value=0, max_value=10, value=0, step=1)
 
 # -------------------------------
-# 7. 예측 및 시각화 구동
+# 7. 예측 및 시각화 구동 (st.scatter_chart 컴포넌트 활용)
 # -------------------------------
 if st.button("예측하기"):
 
@@ -94,54 +89,35 @@ if st.button("예측하기"):
     prediction = model.predict(new_patient_scaled)
 
     st.subheader("📊 예측 결과")
-    if prediction == 0:
+    if prediction[0] == 0:
         st.success("✅ 낮은 위험군으로 분류되었습니다.")
     else:
         st.error("⚠️ 높은 위험군으로 분류되었습니다.")
 
-    st.write(f"군집 번호: {prediction}")
+    st.write(f"군집 번호: {prediction[0]}")
 
-    # 차트 시각화
+    # 차트 시각화 데이터 구성
     st.subheader("📈 환자 위치 시각화")
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    # 기존 데이터 산점도
-    ax.scatter(df['담배여부'], df['술여부'], c=df['cluster'], alpha=0.5, s=150)
-
-    # 신규 환자 'X' 표시
-    ax.scatter(Smokes, Alkhol, c='black', s=300, marker='X')
-
-    # ⚠️ 절대 깨지지 않는 벡터 그래픽 한글 렌더링 기법 (Explicit Path Injection)
-    def draw_safe_korean(axis, text, x, y, size=12, is_title=False):
-        if font_file and os.path.exists(font_file):
-            try:
-                # 텍스트를 기하학적 패스(선)로 변환
-                t_path = TextPath((0, 0), text, size=size, prop=fm.FontProperties(fname=font_file))
-                patch = PathPatch(t_path, facecolor="black", edgecolor="none")
-                
-                # 타이틀 혹은 축 레이블 위치 계산 및 강제 주입
-                if is_title:
-                    axis.text(x, y, text, fontproperties=fm.FontProperties(fname=font_file), fontsize=size, ha='center')
-                else:
-                    axis.text(x, y, text, fontproperties=fm.FontProperties(fname=font_file), fontsize=size)
-                return True
-            except Exception:
-                return False
-        return False
-
-    # 안전하게 강제 주입된 한국어 레이블 (실패 시 영문 백업 자동 작동)
-    if not draw_safe_korean(ax, "폐암 위험 군집 시각화", 5, 11.5, size=15, is_title=True):
-        ax.set_title('Lung Cancer Risk Clustering', fontsize=15)
-        
-    if font_file and os.path.exists(font_file):
-        ax.set_xlabel('흡연 정도', fontproperties=fm.FontProperties(fname=font_file), fontsize=12)
-        ax.set_ylabel('음주 정도', fontproperties=fm.FontProperties(fname=font_file), fontsize=12)
-        ax.text(10.2, Alkhol, '새 환자', fontproperties=fm.FontProperties(fname=font_file), fontsize=10, verticalalignment='center')
-    else:
-        ax.set_xlabel('Smoking Level')
-        ax.set_ylabel('Drinking Level')
-        
-    ax.set_xlim(-1, 11)
-    ax.set_ylim(-1, 12)
     
-    st.pyplot(fig)
+    # 기존 데이터 가공
+    chart_df = df.copy()
+    chart_df['대상'] = chart_df['cluster'].apply(lambda x: f"위험군 {x}")
+    
+    # 새 환자 데이터 추가
+    new_row = pd.DataFrame({
+        '술여부': [Alkhol],
+        '주변환경': [AreaQ],
+        '담배여부': [Smokes],
+        'cluster': [prediction[0]],
+        '대상': ['새 환자']
+    })
+    chart_df = pd.concat([chart_df, new_row], ignore_index=True)
+
+    # ⚠️ 절대 에러가 나지 않는 최신 Streamlit 네이티브 인터랙티브 차트 적용
+    st.scatter_chart(
+        data=chart_df,
+        x='담배여부',
+        y='술여부',
+        color='대상',
+        size='대상',  # 새 환자를 차트에서 더 크게 강조하기 위한 트릭
+    )
