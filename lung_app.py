@@ -4,16 +4,17 @@ import joblib
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import os
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import urllib.request
+import shutil
 
 # -------------------------------
-# 1. 깃허브 URL 직접 다운로드 기반 한글 폰트 설정
+# 1. 폰트 다운로드 및 캐시 강제 초기화 설정
 # -------------------------------
 @st.cache_resource
 def load_custom_font():
-    # 사용자의 깃허브 주소에서 폰트 파일을 직접 다운로드합니다.
     url = "https://github.com"
     save_path = "temp_font.ttf"
     
@@ -24,14 +25,23 @@ def load_custom_font():
             return None
     return save_path
 
+# 구버전 폰트 캐시 디렉토리 완전히 강제 삭제 (가장 중요)
+try:
+    shutil.rmtree(mpl.get_cachedir(), ignore_errors=True)
+except Exception:
+    pass
+
 font_file = load_custom_font()
 
 if font_file and os.path.exists(font_file):
     try:
-        # 매트플롯립에 다운로드한 폰트 주입
+        # 매트플롯립 폰트 매니저 리셋 및 파일 강제 등록
         fm.fontManager.addfont(font_file)
         font_name = fm.FontProperties(fname=font_file).get_name()
+        
+        # 폰트 전역 적용 및 렌더러 강제 갱신
         plt.rcParams['font.family'] = font_name
+        mpl.rc('font', family=font_name)
     except Exception as e:
         plt.rcParams['font.family'] = 'sans-serif'
 else:
