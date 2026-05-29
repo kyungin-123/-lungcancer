@@ -8,17 +8,23 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 
 # -------------------------------
-# 깃허브에 업로드한 '메모먼트 꾹꾹체' 설정
+# 폰트 강제 등록 및 한글 설정
 # -------------------------------
-font_path = "Kkukkkuk.ttf"  # 깃허브에 올린 파일명과 일치해야 합니다.
+# ⚠️ 주의: 깃허브에 올린 실제 폰트 파일명과 대소문자까지 똑같이 적어야 합니다.
+font_path = "Kkukkkuk.ttf" 
 
 if os.path.exists(font_path):
-    # 파일이 있으면 커스텀 폰트 지정
-    font_name = fm.FontProperties(fname=font_path).get_name()
-    plt.rcParams['font.family'] = font_name
+    try:
+        # 시스템에 폰트 파일 직접 추가 (가장 확실한 방법)
+        fm.fontManager.addfont(font_path)
+        font_name = fm.FontProperties(fname=font_path).get_name()
+        plt.rcParams['font.family'] = font_name
+    except Exception as e:
+        st.error(f"폰트 로드 중 오류 발생: {e}")
 else:
-    # 파일이 없을 때를 대비한 기본 폰트 백업
-    plt.rcParams['font.family'] = 'Malgun Gothic'
+    # 파일이 없을 때 경고창 표시
+    st.warning(f"⚠️ '{font_path}' 파일을 찾을 수 없습니다. 깃허브 업로드 상태를 확인하세요.")
+    plt.rcParams['font.family'] = 'sans-serif'
 
 plt.rcParams['axes.unicode_minus'] = False
 # -------------------------------
