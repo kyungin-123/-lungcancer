@@ -5,11 +5,28 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 import os
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import urllib.request
 
 # -------------------------------
-# 한글 폰트 설정
+# 웹 서버(Streamlit Cloud) 한글 폰트 다운로드 및 설정
 # -------------------------------
-plt.rcParams['font.family'] = 'Malgun Gothic'
+@st.cache_resource
+def load_font():
+    font_url = "https://github.com"
+    font_path = "NanumGothic.ttf"
+    if not os.path.exists(font_path):
+        urllib.request.urlretrieve(font_url, font_path)
+    return font_path
+
+try:
+    font_p = load_font()
+    font_name = fm.FontProperties(fname=font_p).get_name()
+    plt.rcParams['font.family'] = font_name
+except Exception as e:
+    # 로컬 실행 대비 예외 처리
+    plt.rcParams['font.family'] = 'Malgun Gothic'
+
 plt.rcParams['axes.unicode_minus'] = False
 
 # -------------------------------
