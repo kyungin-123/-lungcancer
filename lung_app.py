@@ -11,11 +11,10 @@ plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
 # -------------------------------
-# 2. 상대 경로 지정 (깃허브 실제 파일명 반영)
+# 2. 상대 경로 지정
 # -------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 깃허브 저장소에 올라와 있는 실제 이름과 똑같이 매칭했습니다.
 model_path = os.path.join(BASE_DIR, "lung_model.pkl")
 scaler_path = os.path.join(BASE_DIR, "scaler.pkl")
 data_path = os.path.join(BASE_DIR, "lung.csv")
@@ -35,9 +34,7 @@ if (
     or not os.path.exists(scaler_path)
     or not os.path.exists(data_path)
 ):
-    st.error(
-        "필수 파일(lung_model.pkl, scaler.pkl, lung.csv) 중 일부가 깃허브에 없습니다. 파일명을 확인해 주세요!"
-    )
+    st.error("필수 파일(lung_model.pkl, scaler.pkl, lung.csv)이 깃허브에 없습니다. 확인해 주세요!")
     st.stop()
 
 # -------------------------------
@@ -46,6 +43,10 @@ if (
 model = joblib.load(model_path)
 scaler = joblib.load(scaler_path)
 df = pd.read_csv(data_path)
+
+# 데이터 내부의 실제 컬럼명들을 순서대로 가져옵니다. (KeyError 방지 핵심!)
+# 예: ['술여부', '주변환경', '담배여부', 'cluster'] 형태라고 가정
+cols = df.columns.tolist()
 
 # -------------------------------
 # 5. 사용자 입력 (환자 데이터)
@@ -59,9 +60,9 @@ Smokes = st.number_input("담배량 입력 (흡연)", min_value=0.0, step=0.1, v
 # -------------------------------
 if st.button("군집 예측 및 시각화하기"):
 
-    # 모델 학습 당시의 원래 피처 순서에 맞춰줍니다.
+    # 💡 데이터 파일의 실제 상위 3개 컬럼명을 동적으로 가져와 입력 데이터 프레임을 만듭니다.
     new_patient = pd.DataFrame(
-        [[Alkhol, AreaQ, Smokes]], columns=["술여부", "주변환경", "담배여부"]
+        [[Alkhol, AreaQ, Smokes]], columns=[cols[0], cols[1], cols[2]]
     )
 
     new_patient_scaled = scaler.transform(new_patient)
@@ -74,18 +75,22 @@ if st.button("군집 예측 및 시각화하기"):
     # -------------------------------
     fig, ax = plt.subplots(figsize=(7, 6))
 
-    # 데이터셋 내에 군집 정보 컬럼 이름 설정 (일반적으로 'cluster' 혹은 유사 이름)
-    # 만약 에러가 난다면 데이터 내부의 실제 컬럼명('cluster')을 확인해야 합니다.
-    if "cluster" in df.columns:
-        cluster_color = df["cluster"]
-    elif "군집" in df.columns:
-        cluster_color = df["군집"]
-    else:
-        cluster_color = "gray"
+    # 데이터 내에서 군집을 뜻하는 컬럼(보통 마지막 컬럼이나 이름에 'cluster' 포함)을 찾습니다.
+    cluster_col = None
+    for c in df.columns:
+        if "cluster" in c.lower() or "군집" in c:
+            cluster_col = c
+            break
 
-    # 기존 데이터 산점도 시각화
-    scatter = ax.scatter(
-        df["담배여부"], df["술여부"], c=cluster_color, cmap="viridis", alpha=0.6, s=60
+    if cluster_col and cluster_col in df.columns:
+        cluster_color = df[cluster_col]
+    else:
+        cluster_color = "gray"  # 못 찾으면 기본 회색 처리
+
+    # 💡 데이터 파일의 실제 컬럼명을 사용하여 산점도를 안전하게 그립니다.
+    # cols[2] = 담배/흡연 컬럼, cols[0] = 술/알코올 컬럼 위치 매핑
+    ax.scatter(
+        df[cols[2]], df[cols[0]], c=cluster_color, cmap="viridis", alpha=0.6, s=60
     )
 
     # '새 환자' 위치에 검은색 큰 X 표시
@@ -100,11 +105,11 @@ if st.button("군집 예측 및 시각화하기"):
         label="새 환자",
     )
 
-    # 디자인 디테일 적용
-    ax.set_xlabel("흡연", fontsize=11)
-    ax.set_ylabel("알코올", fontsize=11)
+    # 축 레이블을 데이터 실제 파일의 컬럼명으로 자동 설정하여 에러 예방
+    ax.set_xlabel(str(cols[2]), fontsize=11)
+    ax.set_ylabel(str(cols[0]), fontsize=11)
     ax.set_title("폐암 환자 군집", fontsize=14, pad=10)
     ax.legend(loc="upper left", fontsize=11)
 
-    # 그래프 출력
+    # 스트림릿에 그래프 출력
     st.pyplot(fig)
