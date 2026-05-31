@@ -1,14 +1,15 @@
 import os
-import urllib.request
-import joblib
+import urllib.parse
 import matplotlib.pyplot as plt
 import pandas as pd
+import requests
+import joblib
 import streamlit as st
 
 # -------------------------------
 # 0. ⚠️ [중요] 본인의 깃허브 Raw 주소로 변경하세요!
 # -------------------------------
-# 깃허브에서 파일을 열고 'Raw' 버튼을 눌렀을 때 나오는 URL 주소 형식을 입력해야 합니다.
+# 주소에 한글이 포함되어 있어도 아래 코드가 자동으로 처리해 줍니다.
 GITHUB_RAW_URL = "https://raw.githubusercontent.com/본인ID/저장소이름/main/"
 
 # -------------------------------
@@ -18,22 +19,33 @@ plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
 # -------------------------------
-# 2. 파일 다운로드 함수 (깃허브 -> 로컬 자동 저장)
+# 2. 파일 다운로드 함수 (한글 URL 인코딩 지원 및 requests 사용)
 # -------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def download_file_from_github(filename):
     local_path = os.path.join(BASE_DIR, filename)
+
     # 파일이 없을 때만 깃허브에서 다운로드 진행
     if not os.path.exists(local_path):
         with st.spinner(f"깃허브에서 {filename} 파일을 다운로드 중입니다..."):
-            url = GITHUB_RAW_URL + filename
+            # URL에 한글이 있으면 안전하게 변환(인코딩)합니다.
+            full_url = GITHUB_RAW_URL + filename
+            parsed_url = urllib.parse.urlparse(full_url)
+            encoded_path = urllib.parse.quote(parsed_url.path)
+            url = f"{parsed_url.scheme}://{parsed_url.netloc}{encoded_path}"
+
             try:
-                urllib.request.urlretrieve(url, local_path)
+                response = requests.get(url, timeout=15)
+                response.raise_for_status()  # 404 등 에러 발생 시 예외 처리
+                with open(local_path, "wb") as f:
+                    f.write(response.content)
             except Exception as e:
                 st.error(
-                    f"{filename} 다운로드 실패! 깃허브 주소나 파일명을 확인해주세요. 에러: {e}"
+                    f"{filename} 다운로드 실패!\n"
+                    f"깃허브 주소 상의 ID나 저장소 이름이 정확한지 확인해 주세요.\n"
+                    f"에러 메시지: {e}"
                 )
                 st.stop()
     return local_path
