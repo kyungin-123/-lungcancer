@@ -44,8 +44,7 @@ model = joblib.load(model_path)
 scaler = joblib.load(scaler_path)
 df = pd.read_csv(data_path)
 
-# 데이터 내부의 실제 컬럼명들을 순서대로 가져옵니다. (KeyError 방지 핵심!)
-# 예: ['술여부', '주변환경', '담배여부', 'cluster'] 형태라고 가정
+# 데이터 내부의 실제 컬럼명들을 순서대로 가져옵니다.
 cols = df.columns.tolist()
 
 # -------------------------------
@@ -60,12 +59,13 @@ Smokes = st.number_input("담배량 입력 (흡연)", min_value=0.0, step=0.1, v
 # -------------------------------
 if st.button("군집 예측 및 시각화하기"):
 
-    # 💡 데이터 파일의 실제 상위 3개 컬럼명을 동적으로 가져와 입력 데이터 프레임을 만듭니다.
+    # 💡 [핵심 수정] 컬럼명 불일치 에러를 방지하기 위해 .values를 사용하여 이름 없는 순수 숫자 배열로 변환합니다.
     new_patient = pd.DataFrame(
         [[Alkhol, AreaQ, Smokes]], columns=[cols[0], cols[1], cols[2]]
     )
-
-    new_patient_scaled = scaler.transform(new_patient)
+    
+    # 스케일러와 모델에 이름 대신 값(.values)만 밀어 넣습니다.
+    new_patient_scaled = scaler.transform(new_patient.values)
     pred_cluster = model.predict(new_patient_scaled)
 
     st.success(f"🎯 분석 결과: 이 환자는 {pred_cluster[0]}번 군집에 속합니다.")
@@ -75,7 +75,7 @@ if st.button("군집 예측 및 시각화하기"):
     # -------------------------------
     fig, ax = plt.subplots(figsize=(7, 6))
 
-    # 데이터 내에서 군집을 뜻하는 컬럼(보통 마지막 컬럼이나 이름에 'cluster' 포함)을 찾습니다.
+    # 데이터 내에서 군집을 뜻하는 컬럼 찾기
     cluster_col = None
     for c in df.columns:
         if "cluster" in c.lower() or "군집" in c:
@@ -85,10 +85,9 @@ if st.button("군집 예측 및 시각화하기"):
     if cluster_col and cluster_col in df.columns:
         cluster_color = df[cluster_col]
     else:
-        cluster_color = "gray"  # 못 찾으면 기본 회색 처리
+        cluster_color = "gray"
 
-    # 💡 데이터 파일의 실제 컬럼명을 사용하여 산점도를 안전하게 그립니다.
-    # cols[2] = 담배/흡연 컬럼, cols[0] = 술/알코올 컬럼 위치 매핑
+    # 시각화 데이터 매핑 (X축: 흡연/세번째 열, Y축: 술/첫번째 열)
     ax.scatter(
         df[cols[2]], df[cols[0]], c=cluster_color, cmap="viridis", alpha=0.6, s=60
     )
@@ -105,9 +104,9 @@ if st.button("군집 예측 및 시각화하기"):
         label="새 환자",
     )
 
-    # 축 레이블을 데이터 실제 파일의 컬럼명으로 자동 설정하여 에러 예방
-    ax.set_xlabel(str(cols[2]), fontsize=11)
-    ax.set_ylabel(str(cols[0]), fontsize=11)
+    # 축 레이블 설정
+    ax.set_xlabel("흡연", fontsize=11)
+    ax.set_ylabel("알코올", fontsize=11)
     ax.set_title("폐암 환자 군집", fontsize=14, pad=10)
     ax.legend(loc="upper left", fontsize=11)
 
