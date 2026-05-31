@@ -10,7 +10,7 @@ import streamlit as st
 # 0. ⚠️ [중요] 본인의 깃허브 Raw 주소로 변경하세요!
 # -------------------------------
 # 주소에 한글이 포함되어 있어도 아래 코드가 자동으로 처리해 줍니다.
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/kyungin-123/-lungcancer/main/"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/kyungin-123/-lungcancer/master/"
 
 # -------------------------------
 # 1. 한글 폰트 설정 (Matplotlib 깨짐 방지)
