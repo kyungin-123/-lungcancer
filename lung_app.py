@@ -5,79 +5,106 @@ import pandas as pd
 import streamlit as st
 
 # -------------------------------
-# 한글 폰트 설정 (Matplotlib 깨짐 방지)
+# 1. 한글 폰트 설정 (Matplotlib 깨짐 방지)
 # -------------------------------
-plt.rcParams["font.family"] = "Malgun Gothic"  # 윈도우 기준 (맥은 'AppleGothic')
+plt.rcParams["font.family"] = "Malgun Gothic"
 plt.rcParams["axes.unicode_minus"] = False
 
 # -------------------------------
-# 경로 설정 (절대 경로로 파일 로드 오류 방지)
+# 2. 상대 경로 지정 (깃허브 실제 파일명 반영)
 # -------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# 깃허브 저장소에 올라와 있는 실제 이름과 똑같이 매칭했습니다.
 model_path = os.path.join(BASE_DIR, "lung_model.pkl")
 scaler_path = os.path.join(BASE_DIR, "scaler.pkl")
-data_path = os.path.join(BASE_DIR, "patient_data.csv")
+data_path = os.path.join(BASE_DIR, "lung.csv")
 
 # -------------------------------
-# 제목
+# 3. Streamlit UI 페이지 설정
 # -------------------------------
-st.title("환자 군집 예측 시스템")
-st.write("음주량, 주변환경, 흡연량을 입력하면 군집을 예측합니다.")
+st.set_page_config(page_title="환자 군집 예측 시스템", page_icon="🫁", layout="centered")
+
+st.title("📈 군집 시각화")
+st.subheader("폐암 환자 군집 예측 시스템")
+st.write("음주량, 주변환경, 흡연량을 입력하면 군집을 예측하고 시각화합니다.")
+
+# 파일들이 정상적으로 존재하는지 체크
+if (
+    not os.path.exists(model_path)
+    or not os.path.exists(scaler_path)
+    or not os.path.exists(data_path)
+):
+    st.error(
+        "필수 파일(lung_model.pkl, scaler.pkl, lung.csv) 중 일부가 깃허브에 없습니다. 파일명을 확인해 주세요!"
+    )
+    st.stop()
 
 # -------------------------------
-# 모델 및 데이터 불러오기
+# 4. 모델 및 데이터 로드
 # -------------------------------
-# 파일들이 lung_app.py와 같은 폴더에 있어야 합니다.
 model = joblib.load(model_path)
 scaler = joblib.load(scaler_path)
 df = pd.read_csv(data_path)
 
 # -------------------------------
-# 사용자 입력
+# 5. 사용자 입력 (환자 데이터)
 # -------------------------------
-Alkhol = st.number_input("음주량 입력", min_value=0.0, step=0.1)
-AreaQ = st.number_input("주변환경 입력", min_value=0.0, step=0.1)
-Smokes = st.number_input("담배량 입력", min_value=0.0, step=0.1)
+Alkhol = st.number_input("음주량 입력 (알코올)", min_value=0.0, step=0.1, value=0.0)
+AreaQ = st.number_input("주변환경 입력", min_value=0.0, step=0.1, value=0.0)
+Smokes = st.number_input("담배량 입력 (흡연)", min_value=0.0, step=0.1, value=0.0)
 
 # -------------------------------
-# 예측 버튼
+# 6. 예측 및 시각화 실행
 # -------------------------------
-if st.button("군집 예측하기"):
+if st.button("군집 예측 및 시각화하기"):
 
-    # 새로운 환자 데이터 생성 (모델 학습 시 사용한 컬럼명과 일치해야 합니다)
+    # 모델 학습 당시의 원래 피처 순서에 맞춰줍니다.
     new_patient = pd.DataFrame(
         [[Alkhol, AreaQ, Smokes]], columns=["술여부", "주변환경", "담배여부"]
     )
 
-    # 스케일링 및 군집 예측
     new_patient_scaled = scaler.transform(new_patient)
     pred_cluster = model.predict(new_patient_scaled)
 
-    # 결과 출력
-    st.success(f"이 환자는 {pred_cluster[0]}번 군집에 속합니다.")
+    st.success(f"🎯 분석 결과: 이 환자는 {pred_cluster[0]}번 군집에 속합니다.")
 
     # -------------------------------
-    # 시각화
+    # 7. 첫 번째 사진 스타일 완벽 복구 (Matplotlib 시각화)
     # -------------------------------
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(7, 6))
 
-    # 원본 데이터에 'cluster' 컬럼이 없다면 방금 예측한 값으로 임시 시각화하거나 제거해야 합니다.
-    # 여기서는 기존 코드 구조를 유지하되 안전하게 색상을 지정합니다.
+    # 데이터셋 내에 군집 정보 컬럼 이름 설정 (일반적으로 'cluster' 혹은 유사 이름)
+    # 만약 에러가 난다면 데이터 내부의 실제 컬럼명('cluster')을 확인해야 합니다.
     if "cluster" in df.columns:
-        c_target = df["cluster"]
+        cluster_color = df["cluster"]
+    elif "군집" in df.columns:
+        cluster_color = df["군집"]
     else:
-        c_target = "blue"  # cluster 컬럼이 없을 경우 기본 색상
+        cluster_color = "gray"
 
-    scatter = ax.scatter(df["담배여부"], df["술여부"], c=c_target, alpha=0.5)
+    # 기존 데이터 산점도 시각화
+    scatter = ax.scatter(
+        df["담배여부"], df["술여부"], c=cluster_color, cmap="viridis", alpha=0.6, s=60
+    )
 
-    # 새 환자 표시 (X 표시)
-    ax.scatter(Smokes, Alkhol, c="black", s=300, marker="X", label="새 환자")
+    # '새 환자' 위치에 검은색 큰 X 표시
+    ax.scatter(
+        Smokes,
+        Alkhol,
+        c="black",
+        s=350,
+        marker="X",
+        edgecolors="white",
+        linewidths=1.5,
+        label="새 환자",
+    )
 
-    ax.set_xlabel("흡연")
-    ax.set_ylabel("음주")
-    ax.set_title("환자 군집 시각화")
-    ax.legend()
+    # 디자인 디테일 적용
+    ax.set_xlabel("흡연", fontsize=11)
+    ax.set_ylabel("알코올", fontsize=11)
+    ax.set_title("폐암 환자 군집", fontsize=14, pad=10)
+    ax.legend(loc="upper left", fontsize=11)
 
-    # 스트림릿에 그래프 출력
+    # 그래프 출력
     st.pyplot(fig)
