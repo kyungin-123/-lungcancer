@@ -1,126 +1,83 @@
 import os
-import urllib.parse
+import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
-import requests
-import joblib
 import streamlit as st
 
 # -------------------------------
-# 0. ⚠️ [중요] 본인의 깃허브 Raw 주소로 변경하세요!
+# 한글 폰트 설정 (Matplotlib 깨짐 방지)
 # -------------------------------
-# 주소에 한글이 포함되어 있어도 아래 코드가 자동으로 처리해 줍니다.
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/kyungin-123/-lungcancer/master/"
-
-# -------------------------------
-# 1. 한글 폰트 설정 (Matplotlib 깨짐 방지)
-# -------------------------------
-plt.rcParams["font.family"] = "Malgun Gothic"
+plt.rcParams["font.family"] = "Malgun Gothic"  # 윈도우 기준 (맥은 'AppleGothic')
 plt.rcParams["axes.unicode_minus"] = False
 
 # -------------------------------
-# 2. 파일 다운로드 함수 (한글 URL 인코딩 지원 및 requests 사용)
+# 경로 설정 (절대 경로로 파일 로드 오류 방지)
 # -------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
-def download_file_from_github(filename):
-    local_path = os.path.join(BASE_DIR, filename)
-
-    # 파일이 없을 때만 깃허브에서 다운로드 진행
-    if not os.path.exists(local_path):
-        with st.spinner(f"깃허브에서 {filename} 파일을 다운로드 중입니다..."):
-            # URL에 한글이 있으면 안전하게 변환(인코딩)합니다.
-            full_url = GITHUB_RAW_URL + filename
-            parsed_url = urllib.parse.urlparse(full_url)
-            encoded_path = urllib.parse.quote(parsed_url.path)
-            url = f"{parsed_url.scheme}://{parsed_url.netloc}{encoded_path}"
-
-            try:
-                response = requests.get(url, timeout=15)
-                response.raise_for_status()  # 404 등 에러 발생 시 예외 처리
-                with open(local_path, "wb") as f:
-                    f.write(response.content)
-            except Exception as e:
-                st.error(
-                    f"{filename} 다운로드 실패!\n"
-                    f"깃허브 주소 상의 ID나 저장소 이름이 정확한지 확인해 주세요.\n"
-                    f"에러 메시지: {e}"
-                )
-                st.stop()
-    return local_path
-
-
-# 깃허브에서 세 가지 파일 자동 원격 다운로드
-model_path = download_file_from_github("lung_model.pkl")
-scaler_path = download_file_from_github("scaler.pkl")
-data_path = download_file_from_github("patient_data.csv")
+model_path = os.path.join(BASE_DIR, "lung_model.pkl")
+scaler_path = os.path.join(BASE_DIR, "scaler.pkl")
+data_path = os.path.join(BASE_DIR, "patient_data.csv")
 
 # -------------------------------
-# 3. Streamlit UI 페이지 설정
+# 제목
 # -------------------------------
-st.set_page_config(page_title="환자 군집 예측 시스템", page_icon="🫁", layout="centered")
-
-st.title("📈 군집 시각화")
-st.subheader("폐암 환자 군집 예측 시스템")
-st.write("음주량, 주변환경, 흡연량을 입력하면 군집을 예측하고 시각화합니다.")
+st.title("환자 군집 예측 시스템")
+st.write("음주량, 주변환경, 흡연량을 입력하면 군집을 예측합니다.")
 
 # -------------------------------
-# 4. 모델 및 데이터 로드
+# 모델 및 데이터 불러오기
 # -------------------------------
+# 파일들이 lung_app.py와 같은 폴더에 있어야 합니다.
 model = joblib.load(model_path)
 scaler = joblib.load(scaler_path)
 df = pd.read_csv(data_path)
 
 # -------------------------------
-# 5. 사용자 입력 (환자 데이터)
+# 사용자 입력
 # -------------------------------
-Alkhol = st.number_input("음주량 입력 (알코올)", min_value=0.0, step=0.1, value=0.0)
-AreaQ = st.number_input("주변환경 입력", min_value=0.0, step=0.1, value=0.0)
-Smokes = st.number_input("담배량 입력 (흡연)", min_value=0.0, step=0.1, value=0.0)
+Alkhol = st.number_input("음주량 입력", min_value=0.0, step=0.1)
+AreaQ = st.number_input("주변환경 입력", min_value=0.0, step=0.1)
+Smokes = st.number_input("담배량 입력", min_value=0.0, step=0.1)
 
 # -------------------------------
-# 6. 예측 및 시각화 실행
+# 예측 버튼
 # -------------------------------
-if st.button("군집 예측 및 시각화하기"):
+if st.button("군집 예측하기"):
 
+    # 새로운 환자 데이터 생성 (모델 학습 시 사용한 컬럼명과 일치해야 합니다)
     new_patient = pd.DataFrame(
         [[Alkhol, AreaQ, Smokes]], columns=["술여부", "주변환경", "담배여부"]
     )
 
+    # 스케일링 및 군집 예측
     new_patient_scaled = scaler.transform(new_patient)
     pred_cluster = model.predict(new_patient_scaled)
 
-    st.success(f"🎯 분석 결과: 이 환자는 {pred_cluster[0]}번 군집에 속합니다.")
+    # 결과 출력
+    st.success(f"이 환자는 {pred_cluster[0]}번 군집에 속합니다.")
 
     # -------------------------------
-    # 7. Matplotlib 시각화
+    # 시각화
     # -------------------------------
-    fig, ax = plt.subplots(figsize=(7, 6))
+    fig, ax = plt.subplots(figsize=(8, 6))
 
+    # 원본 데이터에 'cluster' 컬럼이 없다면 방금 예측한 값으로 임시 시각화하거나 제거해야 합니다.
+    # 여기서는 기존 코드 구조를 유지하되 안전하게 색상을 지정합니다.
     if "cluster" in df.columns:
-        cluster_color = df["cluster"]
+        c_target = df["cluster"]
     else:
-        cluster_color = "gray"
+        c_target = "blue"  # cluster 컬럼이 없을 경우 기본 색상
 
-    scatter = ax.scatter(
-        df["담배여부"], df["술여부"], c=cluster_color, cmap="viridis", alpha=0.6, s=60
-    )
+    scatter = ax.scatter(df["담배여부"], df["술여부"], c=c_target, alpha=0.5)
 
-    ax.scatter(
-        Smokes,
-        Alkhol,
-        c="black",
-        s=350,
-        marker="X",
-        edgecolors="white",
-        linewidths=1.5,
-        label="새 환자",
-    )
+    # 새 환자 표시 (X 표시)
+    ax.scatter(Smokes, Alkhol, c="black", s=300, marker="X", label="새 환자")
 
-    ax.set_xlabel("흡연", fontsize=11)
-    ax.set_ylabel("알코올", fontsize=11)
-    ax.set_title("폐암 환자 군집", fontsize=14, pad=10)
-    ax.legend(loc="upper left", fontsize=11)
+    ax.set_xlabel("흡연")
+    ax.set_ylabel("음주")
+    ax.set_title("환자 군집 시각화")
+    ax.legend()
 
+    # 스트림릿에 그래프 출력
     st.pyplot(fig)
